@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><title>tests</title></head>
+<body>
+<div id="results">PENDING</div>
+<script>
+// Suite de tests d'interaction pour Facturate.
+// On charge l'app réelle dans un iframe et on pilote le DOM.
+const frame = document.createElement("iframe");
+frame.src = "../app.html";
+frame.style.width = "1200px";
+frame.style.height = "900px";
+document.body.appendChild(frame);
+
+const out = [];
+function assert(name, cond) { out.push((cond ? "PASS" : "FAIL") + " :: " + name); }
+// Normalise les séparateurs de milliers français (espace insécable étroit U+202F, etc.)
+function norm(s) { return String(s).replace(/[\s  ]/g, "").replace(",", "."); }
+
+function setVal(el, v) {
+  el.value = v;
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+frame.onload = () => {
+  const d = frame.contentDocument;
+  const w = frame.contentWindow;
+  const totalEl = () => d.querySelector(".inv-totals .line.total .v");
+
+  // 1. Émetteur / client / document
+  setVal(d.getElementById("sName"), "Alex Dev");
+  setVal(d.getElementById("sSiret"), "123 456 789 00012");
+  setVal(d.getElementById("sAddress"), "10 rue Test\n75000 Paris");
+  setVal(d.getElementById("cName"), "Acme SARL");
+  setVal(d.getElementById("dNumber"), "FA-2026-042");
+  assert("Émetteur affiché dans l'aperçu", d.querySelector(".inv-emitter .name").textContent === "Alex Dev");
+  assert("Numéro affiché", d.querySelector(".inv-title .meta").textContent.includes("FA-2026-042"));
+
+  // 2. Ligne 1 : 10 x 500 = 5000 HT, TVA 20 % => 6000 TTC
+  setVal(d.querySelector(".item [data-f='desc']"), "Développement site web");
+  setVal(d.querySelector(".item [data-f='qty']"), "10");
+  setVal(d.querySelector(".item [data-f='price']"), "500");
+  assert("Ligne 1 : total HT = 5000",
+    norm(d.querySelector(".item .line-total").value) === "5000.00");
+  assert("Total TTC = 6000 (5000 HT + 1000 TVA 20%)", norm(totalEl().textContent) === "6000.00€");
+
+  // 3. Ajout d'une 2e ligne : 2 x 100 = 200 HT ; 5 200 HT + 20 % => 6 240 TTC
+  d.getElementById("btnAddItem").click();
+  assert("2 lignes présentes", d.querySelectorAll(".item").length === 2);
+  setVal(d.querySelector(".item:nth-child(2) [data-f='qty']"), "2");
+  setVal(d.querySelector(".item:nth-child(2) [data-f='price']"), "100");
+  assert("Total TTC = 6 240 (5 200 HT + 1 040 TVA)", norm(totalEl().textContent) === "6240.00€");
+
+  // 4. TVA spécifique 5,5 % sur la 2e ligne => 1 000 + 11 = 1 011 => 6 211
+  const tvaSel = d.querySelector(".item:nth-child(2) [data-f='tva']");
+  tvaSel.value = "5.5";
+  tvaSel.dispatchEvent(new Event("change", { bubbles: true }));
+  assert("Total TTC = 6 211 après TVA 5,5% sur ligne 2", norm(totalEl().textContent) === "6211.00€");
+
+  // 5. TVA par défaut à 10 % : la ligne 1 hérite de 10 %, la ligne 2 garde 5,5 %
+  //    => 500 + 11 = 511 => 5 711
+  setVal(d.getElementById("dTva"), "10");
+  assert("Total TTC = 5 711 (défaut 10% sur ligne 1, 5,5% sur ligne 2)", norm(totalEl().textContent) === "5711.00€");
+
+  // 6. Bascule devis/facture
+  const devisRadio = d.querySelector('input[name="docType"][value="devis"]');
+  devisRadio.checked = true;
+  devisRadio.dispatchEvent(new Event("change", { bubbles: true }));
+  assert("Titre = Devis", d.querySelector(".inv-title h1").textContent.trim() === "Devis");
+  const factRadio = d.querySelector('input[name="docType"][value="facture"]');
+  factRadio.checked = true;
+  factRadio.dispatchEvent(new Event("change", { bubbles: true }));
+  assert("Titre = Facture", d.querySelector(".inv-title h1").textContent.trim() === "Facture");
+
+  // 7. Mention micro-entreprise
+  const ae = d.getElementById("sAutoEnt");
+  ae.checked = true;
+  ae.dispatchEvent(new Event("input", { bubbles: true }));
+  assert("Mention « Dispensé d'immatriculation » présente",
+    d.getElementById("preview").textContent.includes("Dispensé d'immatriculation"));
+  assert("Champ TVA intracommunautaire visible",
+    !d.getElementById("autoEntOptions").classList.contains("hidden"));
+
+  // 8. Suppression de ligne
+  d.querySelector("[data-del='1']").click();
+  assert("Retour à 1 ligne après suppression", d.querySelectorAll(".item").length === 1);
+
+  // 9. Persistance (debounce de 350 ms)
+  setTimeout(() => {
+    const raw = w.localStorage.getItem("facturate.draft.v1");
+    assert("Brouillon sauvegardé dans localStorage", raw !== null);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      assert("Valeur persistée correcte (sName)", saved.sName === "Alex Dev");
+      assert("Ligne persistée (10 x 500)", saved.items[0].qty === "10" || saved.items[0].qty === 10);
+    }
+    // 10. Nouveau document efface
+    w.confirm = () => true;
+    d.getElementById("btnNew").click();
+    assert("Nouveau document vide le formulaire", d.getElementById("sName").value === "");
+
+    document.getElementById("results").textContent = out.join("\n");
+  }, 800);
+};
+</script>
+</body>
+</html>

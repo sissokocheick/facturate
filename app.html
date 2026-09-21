@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facturate — Générateur de factures et devis gratuits</title>
+  <meta name="description" content="Créez des factures et devis professionnels, conformes à la législation française, gratuitement. Impression PDF en un clic.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html">        <span class="brand-mark">F</span>
+        <span>Facturate</span>
+      </a>
+      <nav>
+        <button class="btn btn-ghost" id="btnNew" title="Nouveau document">Nouveau</button>
+        <button class="btn btn-ghost" id="btnLoad" title="Recharger le dernier brouillon">Recharger</button>
+        <button class="btn btn-primary" id="btnPrint" title="Imprimer / Exporter en PDF">Imprimer / PDF</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ============ FORMULAIRE ============ -->
+    <section class="panel" aria-label="Édition du document">
+      <div class="doc-type">
+        <label class="radio-card">
+          <input type="radio" name="docType" value="facture" checked>
+          <span>Facture</span>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="docType" value="devis">
+          <span>Devis</span>
+        </label>
+      </div>
+
+      <fieldset class="group">
+        <legend>Vous (émetteur)</legend>
+        <div class="grid-2">
+          <label>Nom / Prénom ou société<input id="sName" placeholder="Jean Dupont"></label>
+          <label>SIRET<input id="sSiret" placeholder="123 456 789 00012"></label>
+        </div>
+        <label>Adresse<textarea id="sAddress" rows="2" placeholder="12 rue de la Paix&#10;75002 Paris"></textarea></label>
+        <div class="grid-2">
+          <label>E-mail<input id="sEmail" type="email" placeholder="jean@exemple.fr"></label>
+          <label>Téléphone<input id="sPhone" placeholder="06 12 34 56 78"></label>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="sAutoEnt">
+          <span>Je suis en micro-entreprise (auto-entrepreneur)</span>
+        </label>
+        <div id="autoEntOptions" class="autoent hidden">
+          <label>Numéro de TVA intracommunautaire (facultatif)
+            <input id="sTvaIntra" placeholder="FR 12 345 678 901">
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend>Votre client</legend>
+        <div class="grid-2">
+          <label>Société ou nom<input id="cName" placeholder="Client SARL"></label>
+          <label>Contact (facultatif)<input id="cContact" placeholder="Marie Martin"></label>
+        </div>
+        <label>Adresse<textarea id="cAddress" rows="2" placeholder="8 avenue des Champs&#10;75008 Paris"></textarea></label>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend>Le document</legend>
+        <div class="grid-3">
+          <label>Numéro<input id="dNumber" placeholder="FA-2026-001"></label>
+          <label>Date<input id="dDate" type="date"></label>
+          <label>Échéance<input id="dDue" type="date"></label>
+        </div>
+        <div class="grid-2">
+          <label>Devise
+            <select id="dCurrency">
+              <option value="EUR" selected>Euro (€)</option>
+              <option value="USD">Dollar ($)</option>
+              <option value="GBP">Livre (£)</option>
+              <option value="CHF">Franc suisse (CHF)</option>
+            </select>
+          </label>
+          <label>TVA par défaut
+            <select id="dTva">
+              <option value="20" selected>20 %</option>
+              <option value="10">10 %</option>
+              <option value="5.5">5,5 %</option>
+              <option value="2.1">2,1 %</option>
+              <option value="0">0 % (exonération)</option>
+            </select>
+          </label>
+        </div>
+        <label>Notes / conditions de paiement (facultatif)
+          <textarea id="dNotes" rows="2" placeholder="Paiement par virement sous 30 jours.&#10;Pas d'escompte pour règlement anticipé."></textarea>
+        </label>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend>Lignes de prestation</legend>
+        <div id="items"></div>
+        <button class="btn btn-outline" id="btnAddItem">+ Ajouter une ligne</button>
+      </fieldset>
+
+      <p class="autosave-note" id="autosaveNote">Brouillon enregistré automatiquement.</p>
+    </section>
+
+    <!-- ============ APERÇU ============ -->
+    <section class="preview-wrap" aria-label="Aperçu du document">
+      <div class="preview-scaler">
+        <div id="preview" class="invoice"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Facturate — factures &amp; devis gratuits, sans inscription.</span>
+    <span>Conforme à la réglementation française. Aucune donnée ne quitte votre navigateur.</span>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
