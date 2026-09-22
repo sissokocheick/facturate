@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>csv test</title></head><body>
+<div id="results">PENDING</div>
+<iframe id="f" src="../app.html" style="width:1200px;height:800px"></iframe>
+<script>
+const out=[];
+function assert(n,c){ out.push((c?"PASS":"FAIL")+" :: "+n); }
+function setVal(el,v){ el.value=v; el.dispatchEvent(new Event("input",{bubbles:true})); }
+function fnv1a(str){let h=0x811c9dc5;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,0x01000193);}return h>>>0;}
+const SALT="frct-2026", chars="0123456789ABCDEF";
+let vk=null;
+for(let a=0;a<20000&&!vk;a++){let p1="",p2="";for(let i=0;i<4;i++){p1+=chars[Math.floor(Math.random()*16)];p2+=chars[Math.floor(Math.random()*16)];}if(fnv1a(p1+"-"+p2+"|"+SALT)%97===0)vk="FACT-"+p1+"-"+p2;}
+
+let started=false;
+document.getElementById('f').onload=()=>{
+  if(started) return; started=true;
+  const d=f.contentDocument, w=f.contentWindow;
+  w.localStorage.clear();
+
+  // Espionner dans le CONTEXTE de l'iframe (pas du parent).
+  // Note : `instanceof Blob` du parent échoue entre royaumes (iframe),
+  // donc on teste la présence de .size/.type comme fait le navigateur.
+  let capturedBlob=null, capturedName=null;
+  const origCreate = w.URL.createObjectURL;
+  w.URL.createObjectURL = function(blob){
+    if (blob && blob.type && String(blob.type).includes("csv")) capturedBlob=blob;
+    return origCreate.call(w.URL, blob);
+  };
+  w.HTMLAnchorElement.prototype.click = function(){ if(this.download) capturedName=this.download; };
+
+  try {
+    setVal(d.getElementById("licenseInput"), vk);
+    d.getElementById("btnActivate").click();
+    setVal(d.getElementById("sName"), "Studio Dev");
+    setVal(d.getElementById("cName"), "Client A");
+    setVal(d.querySelector(".item [data-f='qty']"), "5");
+    setVal(d.querySelector(".item [data-f='price']"), "200");
+    d.getElementById("btnSaveDoc").click();
+    setVal(d.getElementById("cName"), "Client B");
+    const st=d.getElementById("dStatus"); st.value="paye"; st.dispatchEvent(new Event("change",{bubbles:true}));
+    setVal(d.querySelector(".item [data-f='qty']"), "10");
+    d.getElementById("btnSaveDoc").click();
+
+    d.getElementById("btnCsv").click();
+
+    assert("Blob CSV créé par l'app", capturedBlob !== null);
+    assert("Nom de fichier .csv", /\.csv$/.test(capturedName||""));
+
+    if (!capturedBlob) { document.getElementById("results").textContent=out.join("\n"); return; }
+    // readAsText("utf-8") décode et retire le BOM : on lit donc les octets
+    // pour confirmer sa présence, et le texte pour le reste.
+    const rdb = new w.FileReader();
+    rdb.onload = () => {
+      const bytes = new Uint8Array(rdb.result);
+      assert("BOM UTF-8 présent (EF BB BF)",
+        bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF);
+      document.getElementById("results").textContent = out.join("\n");
+    };
+    rdb.onerror = () => { out.push("FAIL :: lecture octets");
+      document.getElementById("results").textContent = out.join("\n"); };
+    rdb.readAsArrayBuffer(capturedBlob);
+
+    const rd = new w.FileReader();
+    rd.onload = () => {
+      const text = rd.result;
+      try {
+        const lines = text.split("\r\n");
+        assert("En-têtes correctes (guillemets CSV)",
+          lines[0] === '"Numéro";"Type";"Client";"Date";"Statut";"Total HT";"Total TVA";"Total TTC";"Devise"');
+        assert("2 lignes de données", lines.length === 3);
+        assert("Séparateur ; (Excel FR)", lines[1].split(";").length === 9);
+        assert("Virgule décimale", text.includes("1000,00"));
+        assert("Guillemets d'échappement", lines[1].includes('"'));
+        assert("Statut Payé libellé en français", text.includes("Payé"));
+        assert("Client B présent", text.includes("Client B"));
+        assert("Accents intacts (Numéro)", text.includes("Numéro"));
+      } catch (e) { out.push("FAIL :: LECTEUR " + e.message); }
+      document.getElementById("results").textContent = out.join("\n");
+    };
+    rd.onerror = () => { out.push("FAIL :: lecture blob");
+      document.getElementById("results").textContent = out.join("\n"); };
+    rd.readAsText(capturedBlob, "utf-8");
+  } catch (e) {
+    out.push("FAIL :: EXCEPTION " + e.message);
+    document.getElementById("results").textContent = out.join("\n");
+  }
+};
+</script>
+</body></html>

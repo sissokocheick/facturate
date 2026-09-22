@@ -6,6 +6,9 @@
   "use strict";
 
   const STORE_KEY = "facturate.draft.v1";
+  const DOCS_KEY = "facturate.docs.v1";
+  const LICENSE_KEY = "facturate.license.v1";
+  const SALT = "frct-2026";
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -37,6 +40,11 @@
     dNumber: "", dDate: todayISO, dDue: dueISO,
     dCurrency: "EUR", dTva: "20", dNotes: "",
     items: [blankItem()],
+    // --- Premium ---
+    dStatus: "attente",      // attente | paye | retard
+    dPaidDate: "",
+    dIban: "",
+    dPenalty: true,          // mention indemnité forfaitaire de retard
   });
 
   let state = defaultState();
@@ -192,6 +200,10 @@
     const dueFr = state.dDue
       ? new Date(state.dDue + "T00:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })
       : "—";
+    const dueOrPaid = (iso) =>
+      iso
+        ? new Date(iso + "T00:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })
+        : "—";
 
     const parties = `
       <div class="inv-party">
@@ -244,9 +256,20 @@ Dispensé d'immatriculation au RCS et au RM. TVA non applicable, art. 293 B du C
 ${state.sTvaIntra ? "TVA intracommunautaire : " + esc(state.sTvaIntra) : ""}`
       : `TVA appliquée selon les taux en vigueur. ${
           state.sSiret ? "SIRET : " + esc(state.sSiret) + "." : ""
-        }`;
+        }${state.dPenalty ? " Indemnité forfaitaire de 40 € pour frais de recouvrement en cas de retard de paiement." : ""}`;
+
+    const statusPill =
+      state.docType === "facture"
+        ? state.dStatus === "paye"
+          ? `<span class="pill pill-ok">Payée${state.dPaidDate ? " le " + dueOrPaid(state.dPaidDate) : ""}</span>`
+          : state.dStatus === "retard"
+          ? `<span class="pill pill-late">En retard</span>`
+          : `<span class="pill">À payer</span>`
+        : `<span class="pill">Proposition</span>`;
 
     $("#preview").innerHTML = `
+      ${state.dStatus === "paye" && state.docType === "facture"
+        ? `<div class="stamp stamp-paid">PAYÉE</div>` : ""}
       <div class="inv-head">
         <div class="inv-emitter">
           <div class="name">${esc(state.sName) || "Votre nom ou société"}</div>
@@ -256,7 +279,7 @@ ${state.sTvaIntra ? "TVA intracommunautaire : " + esc(state.sTvaIntra) : ""}`
           <h1>${title}</h1>
           <div class="meta">N° ${esc(number)}
 ${isFacture ? "Date : " + dateFr + "\nÉchéance : " + dueFr : "Date du devis : " + dateFr + "\nValidité : " + dueFr}</div>
-          <span class="pill">${isFacture ? "À payer" : "Proposition"}</span>
+          ${statusPill}
         </div>
       </div>
 
@@ -405,7 +428,8 @@ ${isFacture ? "Date : " + dateFr + "\nÉchéance : " + dueFr : "Date du devis : 
         refresh();
       }
     });
-    $("#btnLoad").addEventListener("click", () => {
+    const loadBtn = $("#btnLoad");
+    if (loadBtn) loadBtn.addEventListener("click", () => {
       if (load()) {
         hydrateForm();
         renderItems();
@@ -414,7 +438,169 @@ ${isFacture ? "Date : " + dateFr + "\nÉchéance : " + dueFr : "Date du devis : 
         alert("Aucun brouillon enregistré pour l'instant.");
       }
     });
+
+    // ---------- Premium ----------
+    $("#btnActivate").addEventListener("click", () => {
+      const v = $("#licenseInput").value;
+      const msg = $("#licenseMsg");
+      if (setLicense(v)) {
+        msg.style.color = "var(--ok)";
+        msg.textContent = "Licence activée. Merci !";
+        applyProState();
+      } else {
+        msg.style.color = "var(--danger)";
+        msg.textContent = "Clé invalide. Vérifiez la saisie (format FACT-XXXX-XXXX).";
+      }
+    });
+
+    $("#btnSaveDoc").addEventListener("click", () => {
+      if (!isPro()) {
+        showGate("Enregistrer un document");
+        return;
+      }
+      const res = saveDocToLibrary();
+      if (res.ok) {
+        flashNote("Document enregistré dans la bibliothèque (n° " + res.snap.number + ")");
+      } else {
+        showGate("Enregistrer un document");
+      }
+    });
+
+    $("#btnLibrary").addEventListener("click", () => {
+      if (!isPro()) {
+        showGate("La bibliothèque de documents");
+        return;
+      }
+      renderLibrary();
+      $("#libraryOverlay").classList.remove("hidden");
+    });
+
+    $("#btnCloseLib").addEventListener("click", () => {
+      $("#libraryOverlay").classList.add("hidden");
+    });
+    $("#libraryOverlay").addEventListener("click", (e) => {
+      if (e.target.id === "libraryOverlay") $("#libraryOverlay").classList.add("hidden");
+    });
+
+    $("#btnAutoNum").addEventListener("click", () => {
+      if (!isPro()) { showGate("La numérotation automatique"); return; }
+      state.dNumber = nextNumber(state.docType);
+      hydrateForm();
+      refresh();
+      flashNote("Numéro attribué : " + state.dNumber);
+    });
+
+    $("#btnCsv").addEventListener("click", () => {
+      if (!isPro()) { showGate("L'export comptable CSV"); return; }
+      exportCsv();
+      flashNote("Export CSV généré");
+    });
+
+    $("#btnBackup").addEventListener("click", () => {
+      if (!isPro()) { showGate("La sauvegarde complète"); return; }
+      exportBackup();
+      flashNote("Sauvegarde JSON téléchargée");
+    });
+
+    // Champs Premium
+    ["dStatus", "dPaidDate", "dIban"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("input", () => {
+        state[id] = el.value;
+        refresh();
+      });
+      el.addEventListener("change", () => {
+        state[id] = el.value;
+        refresh();
+      });
+    });
+    const pen = document.getElementById("dPenalty");
+    if (pen) {
+      pen.addEventListener("input", () => {
+        state.dPenalty = pen.checked;
+        refresh();
+      });
+    }
   }
+
+  function flashNote(text) {
+    const note = $("#autosaveNote");
+    note.textContent = text;
+    note.classList.add("flash");
+    setTimeout(() => note.classList.remove("flash"), 2200);
+  }
+
+  function showGate(feature) {
+    $("#proGate").classList.remove("hidden");
+    $("#proGate").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("#licenseMsg").textContent = "";
+  }
+
+  function applyProState() {
+    const pro = isPro();
+    const gate = $("#proGate");
+    const box = $("#premiumBox");
+    if (gate) gate.classList.toggle("hidden", pro);
+    if (box) box.style.opacity = pro ? "1" : ".55";
+    const status = $("#proStatus");
+    if (status) {
+      status.textContent = pro ? "Version Pro active" : "Version gratuite — fonctions Pro verrouillées";
+    }
+  }
+
+  function renderLibrary() {
+    const docs = loadDocs();
+    const host = $("#libraryList");
+    if (!docs.length) {
+      host.innerHTML = `<p class="lib-empty">Aucun document enregistré pour l'instant.<br>
+        Remplissez une facture puis cliquez sur « Enregistrer ».</p>`;
+      return;
+    }
+    host.innerHTML = "";
+    docs.forEach((d) => {
+      const el = document.createElement("div");
+      el.className = "lib-item";
+      const c = CURRENCIES[d.currency] || CURRENCIES.EUR;
+      const dateFr = d.date
+        ? new Date(d.date + "T00:00:00").toLocaleDateString("fr-FR")
+        : "—";
+      el.innerHTML = `
+        <div class="lib-main">
+          <div class="lib-top">
+            <span class="lib-num">${esc(d.number)}</span>
+            <span class="pill-sm ${esc(d.status)}">${
+              d.status === "paye" ? "Payé" : d.status === "retard" ? "En retard" : "En attente"
+            }</span>
+          </div>
+          <span class="lib-client">${esc(d.type === "facture" ? "Facture" : "Devis")} · ${esc(d.client)}</span>
+          <span class="lib-meta">${dateFr}</span>
+        </div>
+        <div class="lib-amount">${fmt(d.totalTtc, d.currency)}</div>
+        <div class="lib-actions">
+          <button class="btn btn-outline" data-load="${d.id}">Charger</button>
+          <button class="btn btn-danger" data-rm="${d.id}">Supprimer</button>
+        </div>`;
+      host.appendChild(el);
+    });
+  }
+
+  // Actions de la bibliothèque (délégation)
+  document.addEventListener("click", (e) => {
+    const loadBtn = e.target.closest("[data-load]");
+    if (loadBtn) {
+      if (loadDoc(loadBtn.dataset.load)) {
+        $("#libraryOverlay").classList.add("hidden");
+        flashNote("Document chargé");
+      }
+      return;
+    }
+    const rmBtn = e.target.closest("[data-rm]");
+    if (rmBtn) {
+      deleteDoc(rmBtn.dataset.rm);
+      renderLibrary();
+    }
+  });
 
   function hydrateForm() {
     const map = {
@@ -434,12 +620,205 @@ ${isFacture ? "Date : " + dateFr + "\nÉchéance : " + dueFr : "Date du devis : 
     $("#autoEntOptions").classList.toggle("hidden", !state.sAutoEnt);
     const radio = document.querySelector(`input[name="docType"][value="${state.docType}"]`);
     if (radio) radio.checked = true;
+    // Champs Premium
+    ["dStatus", "dPaidDate", "dIban"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = state[id] || (id === "dStatus" ? "attente" : "");
+    });
+    const pen = document.getElementById("dPenalty");
+    if (pen) pen.checked = state.dPenalty !== false;
   }
 
-  // --------- Démarrage ---------
+  // ============================================================
+  //  FONCTIONNALITÉS PREMIUM
+  //  Vérification de licence 100 % hors ligne (aucun serveur).
+  //  La clé valide un algorithme déterministe : pas de réseau,
+  //  aucune donnée transmise.
+  // ============================================================
+
+  // Hachage FNV-1a 32 bits (déterministe, hors ligne)
+  function fnv1a(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return h >>> 0;
+  }
+
+  // Clés valides : FACT-XXXX-XXXX où fnv1a(partie) % 97 == 0
+  function isValidLicense(key) {
+    if (typeof key !== "string") return false;
+    const m = key.trim().toUpperCase().match(/^FACT-([0-9A-F]{4})-([0-9A-F]{4})$/);
+    if (!m) return false;
+    return fnv1a(m[1] + "-" + m[2] + "|" + SALT) % 97 === 0;
+  }
+
+  function getLicense() {
+    try {
+      return localStorage.getItem(LICENSE_KEY) || "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function isPro() {
+    return isValidLicense(getLicense());
+  }
+
+  function setLicense(key) {
+    if (isValidLicense(key)) {
+      localStorage.setItem(LICENSE_KEY, key.trim().toUpperCase());
+      return true;
+    }
+    return false;
+  }
+
+  // Génère une clé valide (utilisé en local pour générer les clés à vendre)
+  function generateLicense() {
+    const chars = "0123456789ABCDEF";
+    for (let attempt = 0; attempt < 20000; attempt++) {
+      let p1 = "", p2 = "";
+      for (let i = 0; i < 4; i++) {
+        p1 += chars[Math.floor(Math.random() * 16)];
+        p2 += chars[Math.floor(Math.random() * 16)];
+      }
+      if (fnv1a(p1 + "-" + p2 + "|" + SALT) % 97 === 0) {
+        return "FACT-" + p1 + "-" + p2;
+      }
+    }
+    return null;
+  }
+
+  // --------- Bibliothèque de documents ---------
+  function loadDocs() {
+    try {
+      const raw = localStorage.getItem(DOCS_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function persistDocs(docs) {
+    try {
+      localStorage.setItem(DOCS_KEY, JSON.stringify(docs));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function snapshotCurrent() {
+    const c = compute();
+    return {
+      id: "doc-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+      type: state.docType,
+      number: state.dNumber || "—",
+      client: state.cName || "(sans client)",
+      date: state.dDate,
+      totalHt: c.totalHt,
+      totalTva: c.totalTva,
+      totalTtc: c.totalTtc,
+      currency: state.dCurrency,
+      status: state.dStatus,
+      savedAt: new Date().toISOString(),
+      state: JSON.parse(JSON.stringify(state)),
+    };
+  }
+
+  function saveDocToLibrary() {
+    if (!isPro()) return { ok: false, reason: "premium" };
+    const docs = loadDocs();
+    const snap = snapshotCurrent();
+    docs.unshift(snap);
+    persistDocs(docs);
+    return { ok: true, snap };
+  }
+
+  function deleteDoc(id) {
+    persistDocs(loadDocs().filter((d) => d.id !== id));
+  }
+
+  function loadDoc(id) {
+    const doc = loadDocs().find((d) => d.id === id);
+    if (!doc || !doc.state) return false;
+    state = Object.assign(defaultState(), doc.state);
+    if (!Array.isArray(state.items) || !state.items.length) state.items = [blankItem()];
+    hydrateForm();
+    renderItems();
+    refresh();
+    return true;
+  }
+
+  // --------- Numérotation automatique ---------
+  // Trouve le prochain numéro libre pour un type donné.
+  function nextNumber(type) {
+    const prefix = type === "facture" ? "FA" : "DV";
+    const year = new Date().getFullYear();
+    const used = new Set(loadDocs().map((d) => d.number));
+    if (state.dNumber) used.add(state.dNumber);
+
+    for (let n = 1; n <= 9999; n++) {
+      const candidate = `${prefix}-${year}-${String(n).padStart(3, "0")}`;
+      if (!used.has(candidate)) return candidate;
+    }
+    return `${prefix}-${year}-9999+`;
+  }
+
+  // --------- Export comptable CSV ---------
+  // Format euro français, virgule décimale, et BOM pour Excel.
+  function exportCsv() {
+    const docs = loadDocs();
+    const rows = [["Numéro", "Type", "Client", "Date", "Statut", "Total HT", "Total TVA", "Total TTC", "Devise"]];
+    docs.forEach((d) => {
+      rows.push([
+        d.number,
+        d.type === "facture" ? "Facture" : "Devis",
+        d.client,
+        d.date || "",
+        d.status === "paye" ? "Payé" : d.status === "retard" ? "En retard" : "En attente",
+        d.totalHt.toFixed(2).replace(".", ","),
+        d.totalTva.toFixed(2).replace(".", ","),
+        d.totalTtc.toFixed(2).replace(".", ","),
+        d.currency,
+      ]);
+    });
+
+    const csv = rows
+      .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(";"))
+      .join("\r\n");
+
+    download(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }),
+      "facturate-export-comptable.csv");
+    return csv;
+  }
+
+  function download(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // --------- Export de la bibliothèque (sauvegarde) ---------
+  function exportBackup() {
+    const data = { exportedAt: new Date().toISOString(), docs: loadDocs() };
+    download(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
+      "facturate-sauvegarde.json");
+    return true;
+  }
+
+
   load();
   hydrateForm();
   renderItems();
   bindForm();
+  applyProState();
   refresh();
 })();

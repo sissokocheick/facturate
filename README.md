@@ -37,6 +37,33 @@ Tous les tests doivent afficher `PASS`. Couverture actuelle :
 - Mentions légales micro-entreprise (art. 293 B du CGI)
 - Sauvegarde automatique (localStorage) et réinitialisation
 - Formatage multidevise
+- **Premium** : activation de licence (clés valides/rejetées), suivi de paiement,
+  tampon « PAYÉE », numérotation automatique, bibliothèque de documents,
+  export comptable CSV (BOM, séparateur `;`, guillemets), sauvegarde JSON
+
+## Fonctionnalités Premium
+
+Réservées à une licence, validées **100 % hors ligne** (aucun appel réseau) :
+
+| Fonction | Description |
+|---|---|
+| Suivi de paiement | Statut (attente / payée / retard), date de règlement, tampon « PAYÉE » |
+| Numérotation auto | Prochain numéro libre de la forme `FA-2026-003` |
+| Bibliothèque | Enregistre et recharge plusieurs documents |
+| Export comptable | CSV (Excel FR : `;`, virgule décimale, BOM UTF-8) |
+| Sauvegarde | Export JSON complet de la bibliothèque |
+| Pénalité de retard | Mention indemnité forfaitaire de 40 € (art. L441-10 c. com.) |
+
+### Générer des clés à vendre
+
+```bash
+node scripts/gen-license.mjs 10 > cles.txt
+```
+
+Les clés respectent le format `FACT-XXXX-XXXX`. L'algorithme (FNV-1a + sel,
+modulo 97) est le même que celui que le navigateur vérifie, donc une clé
+générée ici fonctionne toujours chez l'utilisateur — c'est testé
+(`tests/license.test.html`). Chaque clé est auto-vérifiée à la génération.
 
 ## Architecture
 

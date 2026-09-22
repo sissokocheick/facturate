@@ -369,3 +369,69 @@ label input:focus,label select:focus,label textarea:focus{
   color:var(--brand-deep);font-weight:600;font-size:14.5px;margin:0 0 22px;
 }
 @media (max-width:560px){ .legal section{padding:20px} }
+
+/* ============================================================
+   Version Premium
+   ============================================================ */
+.pro-tag{
+  font-size:9.5px;background:var(--brand);color:#fff;
+  padding:2px 6px;border-radius:5px;letter-spacing:.05em;vertical-align:middle;
+}
+#premiumBox .grid-2{margin-top:8px}
+#premiumBox .grid-2 .btn{margin-top:4px}
+
+/* Verrou Premium */
+#proGate{border:1px dashed var(--brand);background:var(--brand-soft);text-align:center}
+.gate-title{font-weight:700;font-size:15px;margin-bottom:6px}
+.gate-text{font-size:13px;color:var(--ink-soft);margin-bottom:12px}
+.gate-msg{font-size:12.5px;min-height:18px;margin-top:8px;color:var(--danger)}
+
+/* Tampon PAYÉE */
+.stamp{
+  position:absolute;top:52mm;right:24mm;z-index:5;
+  border:3px solid var(--ok);color:var(--ok);
+  font-weight:800;font-size:26px;letter-spacing:.12em;
+  padding:8px 20px;border-radius:8px;transform:rotate(-12deg);
+  opacity:.85;pointer-events:none;
+}
+.invoice{position:relative}
+
+/* Pastilles de statut */
+.pill-ok{background:#e2f4ec;color:var(--ok)}
+.pill-late{background:#fbe7e4;color:var(--danger)}
+
+/* Overlay bibliothèque */
+.overlay{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(18,22,32,.5);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;padding:24px;
+}
+.overlay-panel{
+  background:var(--paper);border-radius:16px;max-width:760px;width:100%;
+  max-height:82vh;overflow:auto;box-shadow:0 24px 70px rgba(10,15,25,.4);
+  padding:22px 24px;
+}
+.overlay-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.overlay-head h2{font-size:21px}
+.library-list{display:flex;flex-direction:column;gap:9px}
+.lib-item{
+  display:grid;grid-template-columns:1fr auto;gap:4px 14px;align-items:center;
+  border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#fbfcfe;
+}
+.lib-item .lib-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lib-item .lib-top{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.lib-item .lib-num{font-weight:700;font-size:14px}
+.lib-item .lib-client{font-size:13px;color:var(--ink-soft)}
+.lib-item .lib-meta{font-size:12px;color:var(--ink-faint)}
+.lib-item .lib-amount{font-weight:700;font-size:14.5px;text-align:right}
+.lib-item .lib-actions{display:flex;gap:8px;grid-column:2}
+.lib-empty{padding:30px 10px;text-align:center;color:var(--ink-faint);font-size:14px}
+.pill-sm{font-size:10.5px;padding:2px 9px;border-radius:99px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.pill-sm.attente{background:#eef1f6;color:var(--ink-soft)}
+.pill-sm.paye{background:#e2f4ec;color:var(--ok)}
+.pill-sm.retard{background:#fbe7e4;color:var(--danger)}
+
+@media print{
+  .overlay,.btn{display:none !important}
+  .stamp{top:48mm}
+}

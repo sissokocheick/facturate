@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>cross-check license</title></head><body>
+<div id="results">PENDING</div>
+<iframe id="f" src="../app.html" style="width:1200px;height:800px"></iframe>
+<script>
+// Valide que des clés générées par scripts/gen-license.mjs sont acceptées
+// par la VRAIE fonction de l'app (dans js/app.js), et inversement.
+const KEYS = ["FACT-FD37-8D7B","FACT-DFCB-820B","FACT-3669-53B6","FACT-4EA4-073A","FACT-11A8-07CC"];
+const BAD = ["FACT-AAAA-BBBB","FACT-0000-0000","MAUVAISE","FACT-1234",""];
+const out = [];
+function assert(n,c){ out.push((c?"PASS":"FAIL")+" :: "+n); }
+
+let started=false;
+document.getElementById('f').onload = () => {
+  if (started) return; started = true;
+  const d = f.contentDocument, w = f.contentWindow;
+  try {
+    w.localStorage.clear();
+    // Activer chaque clé générée via le vrai bouton de l'app
+    let allOk = true;
+    KEYS.forEach((k) => {
+      w.localStorage.removeItem("facturate.license.v1");
+      const inp = d.getElementById("licenseInput");
+      inp.value = k; inp.dispatchEvent(new Event("input",{bubbles:true}));
+      d.getElementById("btnActivate").click();
+      const stored = w.localStorage.getItem("facturate.license.v1");
+      if (stored !== k) allOk = false;
+      assert("Clé " + k + " acceptée par l'app", stored === k);
+      assert("  Verrou masqué pour cette clé", d.getElementById("proGate").classList.contains("hidden"));
+    });
+    // Clés invalides rejetées
+    BAD.forEach((k) => {
+      w.localStorage.removeItem("facturate.license.v1");
+      const inp = d.getElementById("licenseInput");
+      inp.value = k; inp.dispatchEvent(new Event("input",{bubbles:true}));
+      d.getElementById("btnActivate").click();
+      assert("Clé " + (k||"(vide)") + " rejetée", !w.localStorage.getItem("facturate.license.v1"));
+    });
+    // Robustesse : minuscules et espaces doivent être tolérés
+    w.localStorage.removeItem("facturate.license.v1");
+    const inp = d.getElementById("licenseInput");
+    inp.value = " fact-fd37-8d7b "; inp.dispatchEvent(new Event("input",{bubbles:true}));
+    d.getElementById("btnActivate").click();
+    assert("Clé en minuscules + espaces périphériques acceptée",
+      w.localStorage.getItem("facturate.license.v1") === "FACT-FD37-8D7B");
+  } catch (e) {
+    out.push("FAIL :: EXCEPTION " + e.message);
+  }
+  document.getElementById("results").textContent = out.join("\n");
+};
+</script>
+</body></html>
