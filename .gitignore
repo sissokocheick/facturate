@@ -1,3 +1,6 @@
 node_modules/
 .DS_Store
 *.log
+# Clés à vendre : jamais dans le dépôt public (sinon n'importe qui peut les utiliser)
+cles-a-vendre.txt
+cles-*.txt

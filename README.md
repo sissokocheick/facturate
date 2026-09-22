@@ -57,22 +57,32 @@ Réservées à une licence, validées **100 % hors ligne** (aucun appel réseau)
 ### Générer des clés à vendre
 
 ```bash
-node scripts/gen-license.mjs 10 > cles.txt
+node scripts/gen-license.mjs 20 > cles-a-vendre.txt
 ```
 
 Les clés respectent le format `FACT-XXXX-XXXX`. L'algorithme (FNV-1a + sel,
 modulo 97) est le même que celui que le navigateur vérifie, donc une clé
 générée ici fonctionne toujours chez l'utilisateur — c'est testé
 (`tests/license.test.html`). Chaque clé est auto-vérifiée à la génération.
+Le fichier `cles-a-vendre.txt` est dans `.gitignore` : **ne jamais le commité**,
+les clés seraient publiques. Voir `docs/deploiement.md` pour les charger dans
+Gumroad, qui les livre automatiquement par e-mail après chaque achat.
 
 ## Architecture
 
 ```
-index.html          Formulaire + conteneur d'aperçu
+index.html          Landing page (présentation + tarifs)
+app.html            Formulaire + conteneur d'aperçu
+merci.html          Page post-achat : activation de la licence
 css/style.css       Styles + règles d'impression A4 (@media print)
 js/app.js           État, calculs, rendu de l'aperçu, persistance
 scripts/serve.mjs   Serveur statique de développement
-tests/app.test.html Suite de tests d'interaction
+scripts/gen-license.mjs  Génère les clés à vendre (jamais commité)
+cles-a-vendre.txt   Lot de clés pour Gumroad (jamais commité)
+.github/workflows/pages.yml  Déploiement GitHub Pages
+tests/              Suites de tests d'interaction
+docs/monetisation.md     Les 5 façons de gagner de l'argent
+docs/deploiement.md      Mise en ligne + paramétrage Gumroad
 ```
 
 Points notables du `js/app.js` :
