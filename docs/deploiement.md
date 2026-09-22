@@ -11,7 +11,7 @@
 2. À la racine du dossier `facturate/` :
 
    ```bash
-   git remote add origin https://github.com/VOTRE-PSEUDO/facturate.git
+   git remote add origin https://github.com/sissokocheick/facturate.git
    git branch -M master
    git push -u origin master
    ```
@@ -19,12 +19,12 @@
 3. Sur GitHub : **Settings → Pages → Build and deployment → Source** =
    **GitHub Actions**. Le workflow `.github/workflows/pages.yml` se déclenche
    tout seul à chaque `push`.
-4. ~2 min plus tard, le site est sur `https://VOTRE-PSEUDO.github.io/facturate/`.
+4. ~2 min plus tard, le site est sur `https://sissokocheick.github.io/facturate/`.
 
-**Une fois en ligne, cherche et remplace `VOTRE-PSEUDO`** (4 fichiers) :
+**Une fois en ligne, cherche et remplace `sissokocheick`** (4 fichiers) :
 
    ```bash
-   grep -rl "VOTRE-PSEUDO" index.html merci.html sitemap.xml robots.txt
+   grep -rl "sissokocheick" index.html merci.html sitemap.xml robots.txt
    ```
 
    Puis commit + push. Les liens canoniques et le sitemap deviennent corrects,
@@ -49,7 +49,7 @@ par e-mail. Tu n'interviens jamais. C'est ça qui rend le revenu autonome.
    les clés doivent respecter ton format `FACT-XXXX-XXXX`.
 5. Colle le contenu de `cles-a-vendre.txt` (20 clés). Sauvegarde.
 6. Onglet **Settings** → **After purchase** → rediriger vers
-   `https://VOTRE-PSEUDO.github.io/facturate/merci.html` (page déjà créée).
+   `https://sissokocheick.github.io/facturate/merci.html` (page déjà créée).
 7. **Publish**. Récupère le lien `https://gumroad.com/l/facturate-pro`.
 
 **Dans le code**, remplace les 3 occurrences du lien d'achat :

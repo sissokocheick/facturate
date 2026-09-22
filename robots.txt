@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /tests/
 
-Sitemap: https://VOTRE-PSEUDO.github.io/facturate/sitemap.xml
+Sitemap: https://sissokocheick.github.io/facturate/sitemap.xml
